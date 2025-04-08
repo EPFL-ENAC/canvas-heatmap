@@ -84,6 +84,7 @@ Data can be an object {x: [], y:[], z:[[]]} or and array of objects [{},{}].
 | setDownloadGraphDiv | Unique div ID to apply onclick event for png download | false       | String   |
 | hover               | Return the mouse values on hover                      | false       | Function |
 | click               | Return the mouse values on click                      | false       | Function |
+| select              | Return the mouse values on box selection              | false       | Function |
 | width               | Width of the graph                                    | div width   | Number   |
 | height              | Height of the graph                                   | div height  | Number   |
 | colors              | Color range for the plot (see below for example)      | Red -> Blue | Array    |

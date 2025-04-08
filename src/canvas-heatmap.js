@@ -20,6 +20,7 @@ import {
   range,
   format,
   zoom as d3zoom,
+  brush as d3brush,
   timeFormatDefaultLocale,
 } from "d3";
 import { contours } from "d3-contour";
@@ -95,7 +96,7 @@ const heatmap = (div, data, options = {}) => {
       prepContours = prepareContours(contour, nullData, zDomain, options);
     }
 
-    var { zoombox } = addZoom(
+    var { zoombox, zoom } = addZoom(
       svg,
       data,
       contour,
@@ -107,6 +108,18 @@ const heatmap = (div, data, options = {}) => {
       yDomain,
       zDomain,
       context,
+      options
+    );
+
+    addBrush(
+      svg,
+      div,
+      xAxis,
+      yAxis,
+      xFileDomain,
+      yFileDomain,
+      zoombox,
+      zoom,
       options
     );
 
@@ -184,6 +197,7 @@ const processOptions = (div, data, userOptions) => {
     { name: "setDownloadGraphDiv", default: false, verify: verifyString },
     { name: "hover", default: false, verify: verifyFunction },
     { name: "click", default: false, verify: verifyFunction },
+    { name: "select", default: false, verify: verifyFunction },
 
     {
       name: "colors",
@@ -280,6 +294,9 @@ const processOptions = (div, data, userOptions) => {
   options.canvasHeight = Math.floor(
     options.height - options.marginTop - options.marginBottom
   );
+
+  options.ctrlPressed = false;
+
   return options;
 };
 
@@ -834,6 +851,8 @@ const addZoom = (
   context,
   options
 ) => {
+  let zoomEnabled = true;
+
   var zoom = d3zoom()
     .extent([
       [0, 0],
@@ -888,6 +907,7 @@ const addZoom = (
     .call(zoomy);
 
   function normalzoom(event) {
+    if (!zoomEnabled) return;
     let t = event.transform;
     if (t !== zoomIdentity) {
       xAxis.ax = t.rescaleX(xAxis.ref);
@@ -924,6 +944,7 @@ const addZoom = (
   }
 
   function normalzoomx(event) {
+    if (!zoomEnabled) return;
     let t = event.transform;
     if (t !== zoomIdentity) {
       xAxis.ax = t.rescaleX(xAxis.ref);
@@ -956,6 +977,7 @@ const addZoom = (
   }
 
   function normalzoomy(event) {
+    if (!zoomEnabled) return;
     let t = event.transform;
     if (t !== zoomIdentity) {
       yAxis.ax = t.rescaleY(yAxis.ref);
@@ -987,6 +1009,18 @@ const addZoom = (
     }
   }
 
+  select(window)
+  .on("keydown.zoomBrushToggle", (event) => {
+    if (event.ctrlKey) {
+      zoomEnabled = false;
+      zoombox.style("cursor", "crosshair");
+    }
+  })
+  .on("keyup.zoomBrushToggle", () => {
+    zoomEnabled = true;
+    zoombox.style("cursor", "pointer");
+  });
+
   zoombox.on("dblclick.zoom", null).on("dblclick", () => {
     xAxis.ax = xAxis.base;
     yAxis.ax = yAxis.base;
@@ -1012,7 +1046,130 @@ const addZoom = (
   });
   zoomboxx.on("dblclick.zoom", null);
   zoomboxy.on("dblclick.zoom", null);
-  return { zoombox };
+  return { zoombox, zoom };
+};
+
+const addBrush = (
+  svg,
+  div,
+  xAxis,
+  yAxis,
+  xFileDomain,
+  yFileDomain,
+  zoombox,
+  zoom,
+  options
+) => {
+  // Listen for keyboard events
+  select("body")
+    .on("keydown", (event) => {
+      if (event.key === "Control" && !options.ctrlPressed) {
+        options.ctrlPressed = true;
+        activateBrush();
+      }
+    })
+    .on("keyup", (event) => {
+      if (event.key === "Control") {
+        options.ctrlPressed = false;
+        deactivateBrush();
+      }
+  });
+
+  let isBrushing = false;
+  let timeout = null;
+
+  var brushStart = (event) => {
+    // If the event is not coming from a user interaction or no selection was made
+    if (!event.sourceEvent) return;
+    // We're starting a brush action
+    isBrushing = true;
+  };
+
+  var brushEnd = (event) => {
+    if (!isBrushing) return;
+    // We're ending a brush action
+    const selection = event.selection;
+
+    // If the event is not coming from a user interaction or no selection was made
+    if (!event.sourceEvent || !selection) {
+      // Reset opacity
+      //cells.attr("opacity", 1);
+      isBrushing = false;
+
+      // If Ctrl is no longer pressed, deactivate brush
+      if (!options.ctrlPressed) {
+        deactivateBrush();
+      }
+      return;
+    }
+    if (options.select) options.select(selection);
+
+    // After a short delay, set isBrushing to false so we can switch modes
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      isBrushing = false;
+
+      // If Ctrl is no longer pressed, deactivate brush
+      if (!options.ctrlPressed) {
+        deactivateBrush();
+      }
+    }, 5000);
+  };
+
+  // Create a separate group for the brush
+  var brushGroup = svg
+    .append("g")
+    .attr("class", "brush");
+
+  // Initialize brush with event handlers
+  var brush = d3brush()
+  .extent([
+    [0, 0],
+    [options.canvasWidth, options.canvasHeight],
+  ])
+  .filter(event => event.ctrlKey) // only allow brush if Ctrl is pressed
+  .on("start", brushStart)
+  .on("end", brushEnd);
+
+  // Add brush to the brush group but hide it initially
+  brushGroup
+    .call(brush)
+    .attr("pointer-events", "all")
+    .style("display", "none");
+
+  // Functions to activate/deactivate brush
+  function activateBrush() {
+    brushGroup.style("display", null);
+    zoombox.on(".zoom", null); // Temporarily disable zoom
+
+    // Add a visual indicator that brush mode is active
+    select("#brush-indicator").remove(); // Remove any existing indicator
+    select("body")
+    //svg
+      .append("div")
+      .attr("id", "brush-indicator")
+      .style("position", "absolute")
+      .style("top", "100px")
+      .style("left", "10px")
+      .style("background-color", "rgba(0, 0, 0, 0.7)")
+      .style("color", "white")
+      .style("padding", "5px 10px")
+      .style("border-radius", "4px")
+      .style("font-size", "12px")
+      .text("Brush Mode Active (Ctrl + Click to select)");
+  }
+
+  function deactivateBrush() {
+    if (!isBrushing) {
+      brushGroup.style("display", "none");
+      zoombox.call(zoom); // Re-enable zoom
+
+      // Remove the brush indicator
+      select("#brush-indicator").remove();
+      // Clear the brush selection
+      brushGroup.call(brush.move, null);
+    }
+  }
 };
 
 const downloadGraph = (div, options) => {
