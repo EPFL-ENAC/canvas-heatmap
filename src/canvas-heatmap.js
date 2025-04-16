@@ -111,18 +111,15 @@ const heatmap = (div, data, options = {}) => {
       options
     );
 
-    addBrush(
-      svg,
-      data,
-      div,
-      xAxis,
-      yAxis,
-      xFileDomain,
-      yFileDomain,
-      zoombox,
-      zoom,
-      options
-    );
+    if (options.select)
+      addBrush(
+        svg,
+        xAxis,
+        yAxis,
+        zoombox,
+        zoom,
+        options
+      );
 
     if (options.tooltip)
       addTooltip(
@@ -1052,12 +1049,8 @@ const addZoom = (
 
 const addBrush = (
   svg,
-  data,
-  div,
   xAxis,
   yAxis,
-  xFileDomain,
-  yFileDomain,
   zoombox,
   zoom,
   options
@@ -1104,53 +1097,24 @@ const addBrush = (
       }
       return;
     }
-    if (options.select) {
-      // Get the coordinates of the brush selection
-      const [[x0, y0], [x1, y1]] = selection;
-      // Convert the coordinates to data values
-      const x0Val = xAxis.ax.invert(x0);
-      const x1Val = xAxis.ax.invert(x1);
-      const y0Val = yAxis.ax.invert(y0);
-      const y1Val = yAxis.ax.invert(y1);
-      // Call the select function with the selected box
-      options.select({
-        bbox: [[x0Val, y0Val], [x1Val, y1Val]], 
-        xTime: options.xTime,
-        yTime: options.yTime,
-        xLabel: options.xLabel,
-        yLabel: options.yLabel,
-        xUnit: options.xUnit,
-        yUnit: options.yUnit
-      });
 
-      // Find the indices of the data points that fall within the selection
-      // const xIdx = xFileDomain.findIndex((d) => d[0] <= x0Val && d[1] >= x1Val);
-      // const yIdx = yFileDomain.findIndex((d) => d[0] <= y0Val && d[1] >= y1Val);
-      // Get the data points that fall within the selection
-      // const selectedData = data.filter((d, i) => {
-      //   return (
-      //     i >= xIdx &&
-      //     i <= yIdx &&
-      //     d.x.some((x) => x >= x0Val && x <= x1Val) &&
-      //     d.y.some((y) => y >= y0Val && y <= y1Val)
-      //   );
-      // });
-      // Set the opacity of the selected data points
-      // cells.attr("opacity", (d, i) => (selectedData.includes(d) ? 1 : 0.2));
-      // Call the select function with the selected data
-      // options.select([[x0Val, y0Val], [x1Val, y1Val]], selectedData);
-    }
-
-    // After a short delay, set isBrushing to false so we can switch modes
-    // if (timeout) clearTimeout(timeout);
-    // timeout = setTimeout(() => {
-    //   isBrushing = false;
-    //
-    //   // If Ctrl is no longer pressed, deactivate brush
-    //   if (!options.ctrlPressed) {
-    //     deactivateBrush();
-    //   }
-    // }, 5000);
+    // Get the coordinates of the brush selection
+    const [[x0, y0], [x1, y1]] = selection;
+    // Convert the coordinates to data values
+    const x0Val = xAxis.ax.invert(x0);
+    const x1Val = xAxis.ax.invert(x1);
+    const y0Val = yAxis.ax.invert(y0);
+    const y1Val = yAxis.ax.invert(y1);
+    // Call the select function with the selected box
+    options.select({
+      bbox: [[x0Val, y0Val], [x1Val, y1Val]], 
+      xTime: options.xTime,
+      yTime: options.yTime,
+      xLabel: options.xLabel,
+      yLabel: options.yLabel,
+      xUnit: options.xUnit,
+      yUnit: options.yUnit
+    });
   };
 
   // Create a separate group for the brush
