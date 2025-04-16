@@ -1197,6 +1197,7 @@ const addBrush = (
       select("#brush-indicator").remove();
       // Clear the brush selection
       brushGroup.call(brush.move, null);
+      options.select([]);
     }
   }
 };
